@@ -1,20 +1,49 @@
 <template>
   <div>
     <h1>FPP Manager</h1>
-    <v-row>
-      <v-col>
+    {{ selectedIds }}
+    <!-- {{ openIds }}
+    {{ activeIds }} -->
+    <v-row align="end">
+      <v-col cols="12" md="6" lg="4">
+        <v-text-field
+          :value="gameFolder"
+          label="Your game folder"
+          placeholder=" "
+          readonly
+        >
+          <v-tooltip slot="append" bottom>
+            <template v-slot:activator="{ on }">
+              <v-btn v-on="on" icon @click="selectGameFolder">
+                <v-icon>mdi-folder</v-icon>
+              </v-btn>
+            </template>
+            <span>Select game folder</span>
+          </v-tooltip>
+        </v-text-field>
+      </v-col>
+      <v-col v-if="gameFolder" cols="12" md="6" lg="4">
         <v-text-field
           v-model="filter"
           placeholder="Search for files"
-          outlined
           @keyup="filterTreeView"
-        />
+        >
+          <v-icon slot="append">mdi-magnify</v-icon>
+        </v-text-field>
+      </v-col>
+    </v-row>
+    <v-row v-if="gameFolder">
+      <v-col>
         <v-treeview
+          v-model="selectedIds"
           :items="filteredTreeView"
-          :open="openIds"
-          dense
+          :open.sync="openIds"
+          :active.sync="activeIds"
+          select-type="individual"
           selectable
+          dense
           open-on-click
+          multiple-active
         >
           <template #prepend="{ item, open }">
             <v-icon v-if="item.type === 'folder'">
@@ -32,6 +61,7 @@
 
 <script>
 import { createFileTree, searchTree } from "../helpers/tree-helpers";
+const { dialog } = require("electron").remote;
 
 const fileTypeIconMap = {
   audio: "mdi-file-music",
@@ -44,10 +74,13 @@ export default {
   name: "FppManager",
   data() {
     return {
+      gameFolder: "",
       treeView: [],
       filter: "",
       filterTimeout: 0,
+      selectedIds: [],
       openIds: [],
+      activeIds: [],
       filteredTree: [],
     };
   },
@@ -90,11 +123,23 @@ export default {
           return;
         }
 
-        [this.openIds, this.filteredTree] = searchTree(
+        [this.openIds, this.activeIds, this.filteredTree] = searchTree(
           this.treeView,
           this.filter
         );
       }, 500);
+    },
+    selectGameFolder() {
+      dialog.showOpenDialog(
+        {
+          properties: ["openDirectory"],
+        },
+        (files) => {
+          if (files.length) {
+            this.gameFolder = files[0];
+          }
+        }
+      );
     },
   },
   watch: {

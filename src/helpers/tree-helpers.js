@@ -17,12 +17,28 @@ const isFile = (path) => {
   }
 };
 
-const findNodeByName = (root, names) => {
+export const findNodeByNames = (root, names) => {
   return names.reduce(
     (node, name) =>
       node ? node.children.find((node) => node.name === name) : node,
     root
   );
+};
+
+export const findNodeById = (root, id) => {
+  if (root.id === id) {
+    return root;
+  }
+
+  for (const child of root.children) {
+    const foundNode = findNodeById(child, id);
+
+    if (foundNode) {
+      return foundNode;
+    }
+  }
+
+  return null;
 };
 
 const convertToFileMap = (pathPrefix, paths, getRoot) => {
@@ -71,7 +87,7 @@ const convertToFileMap = (pathPrefix, paths, getRoot) => {
         return;
       }
 
-      const node = findNodeByName(root, parts);
+      const node = findNodeByNames(root, parts);
 
       if (!node) {
         return;
@@ -95,6 +111,7 @@ const createFileTreeNode = (fileMap, root) => {
         id: uuid(),
         type: fileMap[key].mime,
         name: key,
+        children: [],
       });
 
       return;
@@ -155,13 +172,19 @@ const containsInsensitive = (source, target) =>
     ?.includes(target?.toLowerCase()?.trim() ?? "") ?? false;
 
 export const searchTree = (tree, text) => {
-  const ids = [];
+  const openIds = [];
+  const activeIds = [];
   const filteredTree = [];
 
   tree.forEach((node) => {
     const containsText = containsInsensitive(node.name, text);
-    const [childIds, filteredChildren] = (node.children &&
-      searchTree(node.children, text)) || [[], []];
+    const [childOpenIds, childActiveIds, filteredChildren] = (node.children
+      .length &&
+      searchTree(node.children, text)) || [[], [], []];
+
+    if (containsText) {
+      activeIds.push(node.id);
+    }
 
     if (containsText && !filteredChildren.length) {
       filteredTree.push(node);
@@ -171,11 +194,12 @@ export const searchTree = (tree, text) => {
         children: filteredChildren,
       });
 
-      ids.push(node.id);
+      openIds.push(node.id);
     }
 
-    ids.push(...childIds);
+    openIds.push(...childOpenIds);
+    activeIds.push(...childActiveIds);
   });
 
-  return [ids, filteredTree];
+  return [openIds, activeIds, filteredTree];
 };
