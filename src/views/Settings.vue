@@ -1,12 +1,18 @@
 <template>
   <div>
-    <h1>Settings</h1>
+    <v-row>
+      <v-col>
+        <h1>Settings</h1>
+      </v-col>
+    </v-row>
     <v-row>
       <v-col md="8" lg="6">
         <v-text-field
           :value="$store.state.userdata.installationPath"
           label="Your GameGuru installation path"
           readonly
+          outlined
+          dense
         >
           <v-tooltip slot="append" bottom>
             <template v-slot:activator="{ on }">
