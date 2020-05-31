@@ -1,6 +1,6 @@
 "use strict";
 
-import { app, protocol, BrowserWindow } from "electron";
+import { app, protocol, BrowserWindow, Menu } from "electron";
 import {
   createProtocol,
   /* installVueDevtools */
@@ -21,13 +21,17 @@ protocol.registerSchemesAsPrivileged([
 function createWindow() {
   // Create the browser window.
   win = new BrowserWindow({
+    minHeight: 600,
+    minWidth: 800,
     show: false,
     webPreferences: {
       nodeIntegration: true,
     },
   });
 
-  // Menu.setApplicationMenu(null);
+  if (process.env.NODE_ENV === "development") {
+    Menu.setApplicationMenu(null);
+  }
 
   win.maximize();
   win.show();

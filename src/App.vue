@@ -4,10 +4,12 @@
       <v-list dense>
         <v-list-item link to="/">
           <v-list-item-action>
-            <v-icon>mdi-cog-outline</v-icon>
+            <v-icon color="primary">mdi-cog-outline</v-icon>
           </v-list-item-action>
           <v-list-item-content>
-            <v-list-item-title>Settings</v-list-item-title>
+            <v-list-item-title class="primary--text"
+              >Settings</v-list-item-title
+            >
           </v-list-item-content>
         </v-list-item>
         <v-list-item
@@ -16,18 +18,25 @@
           :disabled="!Boolean($store.state.userdata.installationPath)"
         >
           <v-list-item-action>
-            <v-icon>mdi-format-paint</v-icon>
+            <v-icon color="primary">mdi-format-paint</v-icon>
           </v-list-item-action>
           <v-list-item-content>
-            <v-list-item-title>FPP Manager</v-list-item-title>
+            <v-list-item-title class="primary--text"
+              >FPP Manager</v-list-item-title
+            >
           </v-list-item-content>
         </v-list-item>
       </v-list>
     </v-navigation-drawer>
 
-    <v-app-bar app clipped-left>
-      <v-app-bar-nav-icon @click.stop="drawer = !drawer"></v-app-bar-nav-icon>
-      <v-toolbar-title>ScriptGuru Tools</v-toolbar-title>
+    <v-app-bar id="main-app-bar" app clipped-left color="white" elevation="0">
+      <v-app-bar-nav-icon
+        class="primary--text"
+        @click.stop="drawer = !drawer"
+      ></v-app-bar-nav-icon>
+      <v-toolbar-title class="display-1 font-weight-bold primary--text"
+        >ScriptGuru Tools</v-toolbar-title
+      >
     </v-app-bar>
 
     <v-content>
@@ -35,10 +44,6 @@
         <router-view />
       </v-container>
     </v-content>
-
-    <v-footer app>
-      <span>&copy; 2020 Davis McPhee</span>
-    </v-footer>
   </v-app>
 </template>
 
@@ -47,8 +52,11 @@ export default {
   data: () => ({
     drawer: null,
   }),
-  created() {
-    // this.$vuetify.theme.dark = true;
-  },
 };
 </script>
+
+<style scoped>
+#main-app-bar {
+  border-bottom: 1px solid var(--v-secondary-lighten5) !important;
+}
+</style>

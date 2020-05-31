@@ -2,7 +2,7 @@
   <div>
     <v-row>
       <v-col>
-        <h1>Settings</h1>
+        <h1 class="display-1">Settings</h1>
       </v-col>
     </v-row>
     <v-row>
