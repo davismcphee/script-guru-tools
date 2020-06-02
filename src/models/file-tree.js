@@ -1,23 +1,9 @@
-const fs = require("fs");
-const path = require("path");
-const mime = require("mime");
-const util = require("util");
-const glob = require("glob");
+import * as path from "path";
+import * as mime from "mime";
+import { createNodePathMap } from "./node-path-map";
+import { glob } from "../filesystem/glob";
 
-const globAsync = util.promisify(glob);
-
-const isFile = (filePath) => {
-  try {
-    var stat = fs.lstatSync(filePath);
-
-    return stat.isFile();
-  } catch (e) {
-    return false;
-  }
-};
-
-const getAllPaths = (tree) =>
-  tree.map((node) => [node.path, ...getAllPaths(node.children).flat()]);
+const isFile = (p) => !!path.extname(p);
 
 export const createFileTree = async (
   rootPath = "",
@@ -32,27 +18,14 @@ export const createFileTree = async (
     rootPath.length - rootNodeName.length - 1
   );
 
-  const fullPaths = await globAsync(path.join(rootPath, "**/*"));
+  const fullPaths = await glob(path.join(rootPath, "**/*"));
 
   const partialPaths = fullPaths.map((path) =>
     path.substring(newRootPath.length + 1).split("/")
   );
 
   const nodeMap = {};
-
-  const nodePathMap = {
-    _map: {},
-    get: caseSensitive
-      ? (nodePath) => nodePathMap._map[nodePath]
-      : (nodePath) => nodePathMap._map[nodePath.toLowerCase()],
-    set: caseSensitive
-      ? (nodePath, node) => {
-          nodePathMap._map[nodePath] = node;
-        }
-      : (nodePath, node) => {
-          nodePathMap._map[nodePath.toLowerCase()] = node;
-        },
-  };
+  const nodePathMap = createNodePathMap(caseSensitive);
 
   let currentId = 0;
 
@@ -69,6 +42,7 @@ export const createFileTree = async (
         const node = {
           id: nodeId,
           name: part,
+          path: currentPath,
           parent,
           children: [],
         };
@@ -92,8 +66,6 @@ export const createFileTree = async (
           node.type = "folder";
         }
 
-        node.path = currentPath;
-
         parent = node;
       }
     }
@@ -102,12 +74,6 @@ export const createFileTree = async (
   return {
     render() {
       return [nodePathMap.get(rootNodeName)];
-    },
-    getAllPaths() {
-      return getAllPaths([nodePathMap.get(rootNodeName)]);
-    },
-    getAllIds() {
-      return Object.keys(nodeMap).map((id) => parseInt(id));
     },
     getNodeById(id) {
       return nodeMap[id];

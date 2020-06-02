@@ -36,7 +36,12 @@
         >
           <v-tooltip slot="append" bottom>
             <template v-slot:activator="{ on }">
-              <v-btn v-on="on" icon @click="selectFppFile">
+              <v-btn
+                v-on="on"
+                icon
+                @click="selectFppFile"
+                :disabled="!gameFolder"
+              >
                 <v-icon>mdi-file</v-icon>
               </v-btn>
             </template>
@@ -57,7 +62,7 @@
         </v-text-field>
       </v-col>
       <v-col>
-        <v-btn color="primary" @click="exportFpp">
+        <v-btn color="primary" rounded @click="exportFpp">
           <v-icon left>mdi-content-save</v-icon>
           Save FPP
         </v-btn>
@@ -72,6 +77,7 @@
           :active.sync="activeIds"
           :search="filter"
           :filter="filterFunction"
+          selected-color="primary"
           selectable
           selection-type="independent"
           dense
@@ -94,12 +100,10 @@
 
 <script>
 import { createFileTree } from "../models/file-tree";
-const { dialog } = require("electron").remote;
-const path = require("path");
-const glob = require("glob");
-const fs = require("fs");
-const util = require("util");
-const readFileAsync = util.promisify(fs.readFile);
+const { dialog, BrowserWindow } = require("electron").remote;
+import * as path from "path";
+import { glob } from "../filesystem/glob";
+import { readFile, writeFile } from "../filesystem/fs";
 
 const fileTypeIconMap = {
   audio: "mdi-file-music",
@@ -110,6 +114,43 @@ const fileTypeIconMap = {
 
 const addFilesHeader = "[standalone add files]";
 const deleteFilesHeader = "[standalone delete files]";
+
+const getNodeByPathOrAdjustedPath = (tree, currentPath) => {
+  let node = tree.getNodeByPath(currentPath);
+
+  if (!node) {
+    const fileName = currentPath.substring(currentPath.lastIndexOf("/") + 1);
+
+    const filePath = currentPath.substring(
+      0,
+      currentPath.length - fileName.length - 1
+    );
+
+    node = tree.getNodeByPath(
+      [filePath, fileName.replace(/^_e_/, "")].join("/")
+    );
+  }
+
+  return node;
+};
+
+const containsNodeOrParentId = (ids, node) => {
+  return (
+    node != null &&
+    (ids.includes(node.id) || containsNodeOrParentId(ids, node.parent))
+  );
+};
+
+const getAddedIds = (tree, gameFileIds, selectedIds) =>
+  tree
+    .map((node) => {
+      if (selectedIds.includes(node.id) && !gameFileIds.includes(node.id)) {
+        return [node.id];
+      }
+
+      return [...getAddedIds(node.children, gameFileIds, selectedIds)];
+    })
+    .flat();
 
 export default {
   name: "FppManager",
@@ -127,9 +168,6 @@ export default {
       activeIds: [],
       triggerSearch: false,
     };
-  },
-  mounted() {
-    this.initialize();
   },
   methods: {
     async initialize() {
@@ -173,22 +211,7 @@ export default {
       this.selectedIds = [];
 
       this.gameFiles.forEach((currentPath) => {
-        let node = this.tree.getNodeByPath(currentPath);
-
-        if (!node) {
-          const fileName = currentPath.substring(
-            currentPath.lastIndexOf("/") + 1
-          );
-
-          const filePath = currentPath.substring(
-            0,
-            currentPath.length - fileName.length - 1
-          );
-
-          node = this.tree.getNodeByPath(
-            [filePath, fileName.replace(/^_e_/, "")].join("/")
-          );
-        }
+        let node = getNodeByPathOrAdjustedPath(this.tree, currentPath);
 
         if (
           node &&
@@ -219,29 +242,34 @@ export default {
     },
     selectGameFolder() {
       dialog.showOpenDialog(
+        BrowserWindow.getFocusedWindow(),
         {
           properties: ["openDirectory"],
         },
-        (files) => {
+        async (files) => {
           if (!files.length) {
             return;
           }
 
+          await this.initialize();
+
           this.gameFolder = files[0];
 
-          glob(path.join(this.gameFolder, "Files/**/*"), (_, paths) => {
-            this.gameFiles = paths.map((p) =>
-              p.substring(this.gameFolder.length + 1)
-            );
+          const paths = await glob(path.join(this.gameFolder, "Files/**/*"));
 
-            this.updateDefaultSelectedIds();
-          });
+          this.gameFiles = paths.map((p) =>
+            p.substring(this.gameFolder.length + 1)
+          );
+
+          this.updateDefaultSelectedIds();
         }
       );
     },
     selectFppFile() {
       dialog.showOpenDialog(
+        BrowserWindow.getFocusedWindow(),
         {
+          title: "Select FPP File",
           properties: ["openFile"],
           filters: [
             {
@@ -257,7 +285,7 @@ export default {
 
           this.existingFpp = files[0];
 
-          this.existingFppPaths = (await readFileAsync(files[0], "utf8"))
+          this.existingFppPaths = (await readFile(files[0], "utf8"))
             .split(/\r?\n/)
             .map((line) => line.trim())
             .filter(Boolean)
@@ -331,26 +359,74 @@ export default {
         });
       }, 500);
     },
-    exportFpp() {
-      // eslint-disable-next-line no-unused-vars
-      const getSelectedIds = (tree) =>
-        tree
-          .map((node) => {
-            if (this.selectedIds.includes(node.id)) {
-              return [node.id];
-            }
+    async exportFpp() {
+      const gameFileIds = this.gameFiles
+        .map((path) => {
+          const node = getNodeByPathOrAdjustedPath(this.tree, path);
 
-            return [...getSelectedIds(node.children)];
-          })
-          .flat();
+          if (node && node.type !== "folder") {
+            return node.id;
+          }
 
-      // eslint-disable-next-line no-unused-vars
-      const test = getSelectedIds(this.tree.render());
-    },
-  },
-  watch: {
-    "$store.state.userdata.installationPath": function onInstallationPathChange() {
-      this.initialize();
+          return false;
+        })
+        .filter(Boolean);
+
+      const addedIds = getAddedIds(
+        this.tree.render(),
+        gameFileIds,
+        this.selectedIds
+      );
+
+      const deletedIds = gameFileIds.filter(
+        (id) =>
+          !containsNodeOrParentId(this.selectedIds, this.tree.getNodeById(id))
+      );
+
+      const addedPaths = addedIds
+        .map((id) => this.tree.getNodeById(id))
+        .map((node) => {
+          const nodePath = node.path.substring(6).replace(/\//g, "\\");
+
+          return node.type === "file" ? nodePath + "\\" : nodePath;
+        });
+
+      const deletedPaths = deletedIds
+        .map((id) => this.tree.getNodeById(id))
+        .map((node) => {
+          const nodePath = node.path.substring(6).replace(/\//g, "\\");
+
+          return node.type === "file" ? nodePath + "\\" : nodePath;
+        });
+
+      let fppContents = [];
+
+      if (addedPaths.length) {
+        fppContents = [addFilesHeader, ...addedPaths, ""];
+      }
+
+      if (deletedPaths.length) {
+        fppContents = [...fppContents, deleteFilesHeader, ...deletedPaths];
+      }
+
+      const saveResult = await dialog.showSaveDialog(
+        BrowserWindow.getFocusedWindow(),
+        {
+          title: "Save FPP File",
+          filters: [
+            {
+              name: "FPP File",
+              extensions: ["fpp"],
+            },
+          ],
+        }
+      );
+
+      if (saveResult.canceled || !saveResult.filePath?.trim()) {
+        return;
+      }
+
+      await writeFile(saveResult.filePath, fppContents.join("\n"));
     },
   },
 };

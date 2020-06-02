@@ -7,6 +7,21 @@
     </v-row>
     <v-row>
       <v-col md="8" lg="6">
+        <v-alert v-if="invalidPath === true" type="error">
+          It looks like your GameGuru path is invalid
+        </v-alert>
+
+        <v-alert v-else-if="invalidPath === false" type="success">
+          Your GameGuru path is valid
+        </v-alert>
+
+        <v-alert
+          v-else-if="!$store.state.userdata.installationPath"
+          type="warning"
+        >
+          You'll need to add a GameGuru path before you can use any of the tools
+        </v-alert>
+
         <v-text-field
           :value="$store.state.userdata.installationPath"
           label="Your GameGuru installation path"
@@ -30,22 +45,44 @@
 
 <script>
 const { dialog } = require("electron").remote;
+import * as path from "path";
+import { isFile, isDirectory } from "../filesystem/fs";
 
 export default {
   name: "Settings",
-  components: {},
+  data() {
+    return {
+      invalidPath: null,
+    };
+  },
+  mounted() {
+    this.checkInstallationPath();
+  },
   methods: {
+    async checkInstallationPath() {
+      const installationPath = this.$store.state.userdata.installationPath;
+
+      if (!installationPath) {
+        return;
+      }
+
+      this.invalidPath =
+        !(await isFile(path.join(installationPath, "GameGuru.exe"))) ||
+        !(await isDirectory(path.join(installationPath, "Files")));
+    },
     selectInstallationPath() {
       dialog.showOpenDialog(
         {
           properties: ["openDirectory"],
         },
-        (files) => {
-          if (files.length) {
+        async (directories) => {
+          if (directories.length) {
             this.$store.commit("setInstallationPath", {
-              installationPath: files[0],
+              installationPath: directories[0],
             });
           }
+
+          this.checkInstallationPath();
         }
       );
     },

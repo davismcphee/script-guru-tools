@@ -1,3 +1,4 @@
+/* global __static */
 "use strict";
 
 import { app, protocol, BrowserWindow, Menu } from "electron";
@@ -5,6 +6,10 @@ import {
   createProtocol,
   /* installVueDevtools */
 } from "vue-cli-plugin-electron-builder/lib";
+import { initializeGlob } from "./filesystem/glob";
+import * as path from "path";
+import { initializeFs } from "./filesystem/fs";
+
 const isDevelopment = process.env.NODE_ENV !== "production";
 
 app.allowRendererProcessReuse = false;
@@ -23,18 +28,15 @@ function createWindow() {
   win = new BrowserWindow({
     minHeight: 600,
     minWidth: 800,
-    show: false,
+    icon: path.join(__static, "icon.png"),
     webPreferences: {
       nodeIntegration: true,
     },
   });
 
-  if (process.env.NODE_ENV === "production") {
+  if (!isDevelopment) {
     Menu.setApplicationMenu(null);
   }
-
-  win.maximize();
-  win.show();
 
   if (process.env.WEBPACK_DEV_SERVER_URL) {
     // Load the url of the dev server if in development mode
@@ -102,3 +104,7 @@ if (isDevelopment) {
     });
   }
 }
+
+// Initialize IPC handlers
+initializeGlob();
+initializeFs();
