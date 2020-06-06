@@ -53,6 +53,7 @@
     <v-row v-if="gameFolder">
       <v-col cols="12" md="6" lg="4">
         <v-text-field
+          v-model="filter"
           placeholder="Search for files"
           outlined
           dense
@@ -71,18 +72,18 @@
     <v-row v-if="gameFolder">
       <v-col>
         <v-treeview
-          v-model="selectedIds"
-          :items="treeView"
+          ref="tree"
+          :value="filteredSelectedIds"
+          :items="filteredTreeView"
           :open.sync="openIds"
           :active.sync="activeIds"
-          :search="filter"
-          :filter="filterFunction"
           selected-color="primary"
           selectable
           selection-type="independent"
           dense
           open-on-click
           multiple-active
+          @input="onInput"
         >
           <template #prepend="{ item, open }">
             <v-icon v-if="item.type === 'folder'">
@@ -99,11 +100,18 @@
 </template>
 
 <script>
-import { createFileTree } from "../models/file-tree";
+import { createFileTree } from "../fpp-manager/file-tree";
 const { dialog, BrowserWindow } = require("electron").remote;
 import * as path from "path";
 import { glob } from "../filesystem/glob";
-import { readFile, writeFile } from "../filesystem/fs";
+import { writeFile } from "../filesystem/fs";
+import {
+  getDefaultSelectedIds,
+  getExistingFppPaths,
+  generateFppFile,
+  filterTree,
+  getSelectedIds,
+} from "../fpp-manager/helpers";
 
 const fileTypeIconMap = {
   audio: "mdi-file-music",
@@ -111,46 +119,6 @@ const fileTypeIconMap = {
   text: "mdi-file-document",
   video: "mdi-file-video",
 };
-
-const addFilesHeader = "[standalone add files]";
-const deleteFilesHeader = "[standalone delete files]";
-
-const getNodeByPathOrAdjustedPath = (tree, currentPath) => {
-  let node = tree.getNodeByPath(currentPath);
-
-  if (!node) {
-    const fileName = currentPath.substring(currentPath.lastIndexOf("/") + 1);
-
-    const filePath = currentPath.substring(
-      0,
-      currentPath.length - fileName.length - 1
-    );
-
-    node = tree.getNodeByPath(
-      [filePath, fileName.replace(/^_e_/, "")].join("/")
-    );
-  }
-
-  return node;
-};
-
-const containsNodeOrParentId = (ids, node) => {
-  return (
-    node != null &&
-    (ids.includes(node.id) || containsNodeOrParentId(ids, node.parent))
-  );
-};
-
-const getAddedIds = (tree, gameFileIds, selectedIds) =>
-  tree
-    .map((node) => {
-      if (selectedIds.includes(node.id) && !gameFileIds.includes(node.id)) {
-        return [node.id];
-      }
-
-      return [...getAddedIds(node.children, gameFileIds, selectedIds)];
-    })
-    .flat();
 
 export default {
   name: "FppManager",
@@ -161,12 +129,14 @@ export default {
       existingFpp: "",
       existingFppPaths: { adds: [], deletes: [] },
       treeView: [],
+      filteredTreeView: [],
       filter: "",
       filterTimeout: 0,
       selectedIds: [],
+      filteredSelectedIds: [],
       openIds: [],
       activeIds: [],
-      triggerSearch: false,
+      ignoreOnInput: false,
     };
   },
   methods: {
@@ -177,8 +147,10 @@ export default {
       );
 
       this.treeView = this.tree.render();
-
+      this.filteredTreeView = this.treeView;
       this.openIds = [this.treeView[0].id];
+      this.activeIds = [];
+      this.filter = "";
 
       this.updateDefaultSelectedIds();
     },
@@ -192,53 +164,71 @@ export default {
 
       this.filterTimeout = setTimeout(() => {
         if (!filter.trim()) {
+          this.ignoreOnInput = true;
+          this.filteredTreeView = this.treeView;
+          this.filteredSelectedIds = [...this.selectedIds];
           this.openIds = [this.treeView[0].id];
           this.activeIds = [];
-          this.filter = "";
 
           return;
         }
 
-        this.triggerSearch = true;
-        this.filter = filter;
+        [this.openIds, this.activeIds, this.filteredTreeView] = filterTree(
+          this.treeView,
+          filter
+        );
 
-        this.$nextTick(() => {
-          this.triggerSearch = false;
-        });
+        this.filteredSelectedIds = getSelectedIds(
+          this.filteredTreeView,
+          this.selectedIds
+        );
+
+        this.ignoreOnInput = true;
       }, 500);
     },
+    onInput(currentSelectedIds) {
+      if (this.ignoreOnInput) {
+        this.ignoreOnInput = false;
+
+        return;
+      }
+
+      if (this.filteredSelectedIds.length < currentSelectedIds.length) {
+        const addedId = currentSelectedIds.filter(
+          (id) => !this.filteredSelectedIds.includes(id)
+        )[0];
+
+        this.selectedIds.push(addedId);
+      } else if (this.filteredSelectedIds.length > currentSelectedIds.length) {
+        const removedId = this.filteredSelectedIds.filter(
+          (id) => !currentSelectedIds.includes(id)
+        )[0];
+
+        this.selectedIds = this.selectedIds.filter((id) => id !== removedId);
+      }
+
+      this.filteredSelectedIds = currentSelectedIds;
+
+      this.$nextTick(() =>
+        Object.values(this.$refs.tree.nodes).forEach((node) => {
+          if (node.isIndeterminate) {
+            node.isIndeterminate = false;
+
+            if (node.vnode) {
+              node.vnode.isIndeterminate = false;
+            }
+          }
+        })
+      );
+    },
     updateDefaultSelectedIds() {
-      this.selectedIds = [];
+      this.selectedIds = getDefaultSelectedIds(
+        this.tree,
+        this.gameFiles,
+        this.existingFppPaths
+      );
 
-      this.gameFiles.forEach((currentPath) => {
-        let node = getNodeByPathOrAdjustedPath(this.tree, currentPath);
-
-        if (
-          node &&
-          node.type !== "folder" &&
-          !this.selectedIds.includes(node.id)
-        ) {
-          this.selectedIds.push(node.id);
-        }
-      });
-
-      const { adds, deletes } = this.existingFppPaths;
-
-      adds.forEach((currentPath) => {
-        const node = this.tree.getNodeByPath(currentPath);
-
-        if (node && !this.selectedIds.includes(node.id)) {
-          this.selectedIds.push(node.id);
-        }
-      });
-
-      deletes.forEach((currentPath) => {
-        const node = this.tree.getNodeByPath(currentPath);
-
-        if (node && this.selectedIds.includes(node.id)) {
-          this.selectedIds.splice(this.selectedIds.indexOf(node.id), 1);
-        }
-      });
+      this.filteredSelectedIds = this.selectedIds;
     },
     selectGameFolder() {
       dialog.showOpenDialog(
@@ -284,130 +274,18 @@ export default {
           }
 
           this.existingFpp = files[0];
-
-          this.existingFppPaths = (await readFile(files[0], "utf8"))
-            .split(/\r?\n/)
-            .map((line) => line.trim())
-            .filter(Boolean)
-            .reduce(
-              ({ state, adds, deletes }, line) => {
-                if (line === addFilesHeader) {
-                  state = "add";
-                } else if (line === deleteFilesHeader) {
-                  state = "delete";
-                } else if (state === "add") {
-                  adds.push(
-                    `Files/${line
-                      .replace(/\\/g, "/")
-                      .replace(/(^[\\//]|[\\//]$)/g, "")}`
-                  );
-                } else if (state === "delete") {
-                  deletes.push(
-                    `Files/${line
-                      .replace(/\\/g, "/")
-                      .replace(/(^[\\//]|[\\//]$)/g, "")}`
-                  );
-                }
-
-                return { state, adds, deletes };
-              },
-              { state: "none", adds: [], deletes: [] }
-            );
+          this.existingFppPaths = await getExistingFppPaths(this.existingFpp);
 
           this.updateDefaultSelectedIds();
         }
       );
     },
-    filterFunction(item, search) {
-      const matches =
-        item.name.toLocaleLowerCase().indexOf(search.toLocaleLowerCase()) > -1;
-
-      if (this.triggerSearch && matches) {
-        let currentParent = item.parent;
-
-        while (currentParent && !this.openIds.includes(currentParent.id)) {
-          this.openIds.push(currentParent.id);
-          currentParent = currentParent.parent;
-        }
-
-        if (!this.activeIds.includes(item.id)) {
-          this.activeIds.push(item.id);
-        }
-      }
-
-      return matches;
-    },
-    searchFileTree(e) {
-      clearTimeout(this.filterTimeout);
-
-      const filter = e.target.value || "";
-
-      this.filterTimeout = setTimeout(() => {
-        if (!filter.trim()) {
-          this.openIds = [this.treeView[0].id];
-          this.activeIds = [];
-          this.filter = "";
-
-          return;
-        }
-
-        this.triggerSearch = true;
-        this.filter = filter;
-
-        this.$nextTick(() => {
-          this.triggerSearch = false;
-        });
-      }, 500);
-    },
     async exportFpp() {
-      const gameFileIds = this.gameFiles
-        .map((path) => {
-          const node = getNodeByPathOrAdjustedPath(this.tree, path);
-
-          if (node && node.type !== "folder") {
-            return node.id;
-          }
-
-          return false;
-        })
-        .filter(Boolean);
-
-      const addedIds = getAddedIds(
-        this.tree.render(),
-        gameFileIds,
+      const fppFile = generateFppFile(
+        this.tree,
+        this.gameFiles,
         this.selectedIds
       );
-
-      const deletedIds = gameFileIds.filter(
-        (id) =>
-          !containsNodeOrParentId(this.selectedIds, this.tree.getNodeById(id))
-      );
-
-      const addedPaths = addedIds
-        .map((id) => this.tree.getNodeById(id))
-        .map((node) => {
-          const nodePath = node.path.substring(6).replace(/\//g, "\\");
-
-          return node.type === "file" ? nodePath + "\\" : nodePath;
-        });
-
-      const deletedPaths = deletedIds
-        .map((id) => this.tree.getNodeById(id))
-        .map((node) => {
-          const nodePath = node.path.substring(6).replace(/\//g, "\\");
-
-          return node.type === "file" ? nodePath + "\\" : nodePath;
-        });
-
-      let fppContents = [];
-
-      if (addedPaths.length) {
-        fppContents = [addFilesHeader, ...addedPaths, ""];
-      }
-
-      if (deletedPaths.length) {
-        fppContents = [...fppContents, deleteFilesHeader, ...deletedPaths];
-      }
 
       const saveResult = await dialog.showSaveDialog(
         BrowserWindow.getFocusedWindow(),
@@ -426,7 +304,7 @@ export default {
         return;
       }
 
-      await writeFile(saveResult.filePath, fppContents.join("\n"));
+      await writeFile(saveResult.filePath, fppFile);
     },
   },
 };
