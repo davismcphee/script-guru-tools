@@ -102,7 +102,7 @@
         <v-btn-group class="ml-5" dense borderless>
           <v-tooltip bottom>
             <template #activator="{ on }">
-              <v-btn @click="undo" :elevation="0">
+              <v-btn @click="undoOrRedo(false)" :elevation="0">
                 <v-icon color="primary" v-on="on">mdi-undo</v-icon>
               </v-btn>
             </template>
@@ -110,7 +110,7 @@
           </v-tooltip>
           <v-tooltip bottom>
             <template #activator="{ on }">
-              <v-btn @click="redo" :elevation="0">
+              <v-btn @click="undoOrRedo(true)" :elevation="0">
                 <v-icon color="primary" v-on="on">mdi-redo</v-icon>
               </v-btn>
             </template>
@@ -164,7 +164,9 @@
                 {{ getFileIcon(item.type) }}
               </v-icon>
 
-              <span @contextmenu="deleteFolder(item)">{{ item.name }}</span>
+              <span @contextmenu="deleteFolder(tree.getNodeById(item.id))">{{
+                item.name
+              }}</span>
             </div>
           </template>
         </v-treeview>
@@ -187,8 +189,10 @@ import {
   setDisabled,
   anyParentDeleted,
   filterSelected,
+  getNodeValues,
+  setNodeValues,
 } from "../fpp-manager/helpers";
-import { easyUndoRedo as EasyUndoRedo } from "easy-undo-redo";
+import { createUndoRedo } from "../state/undo-redo";
 
 const fileTypeIconMap = {
   audio: "mdi-file-music",
@@ -203,54 +207,6 @@ const viewModes = {
   selected: 2,
 };
 
-const createUndoRedoCache = (
-  max = 0,
-  clone = (obj) => JSON.parse(JSON.stringify(obj))
-) => {
-  let undos = [];
-  let redos = [];
-
-  return {
-    clearAll() {
-      undos = [];
-      redos = [];
-    },
-    clearUndos() {
-      undos = [];
-    },
-    clearRedos() {
-      redos = [];
-    },
-    push(state) {
-      redos = [];
-
-      undos.push(clone(state));
-
-      if (max !== 0 && undos.length > max) {
-        undos.splice(0, 1);
-      }
-    },
-    undo(state) {
-      if (!undos.length) {
-        return null;
-      }
-
-      redos.push(clone(state));
-
-      return undos.pop();
-    },
-    redo(state) {
-      if (!redos.length) {
-        return null;
-      }
-
-      undos.push(clone(state));
-
-      return redos.pop();
-    },
-  };
-};
-
 export default {
   name: "FppManager",
   data() {
@@ -259,18 +215,13 @@ export default {
       gameFiles: [],
       existingFpp: "",
       existingFppPaths: { adds: [], deletes: [] },
-      treeView: [],
       filteredTreeView: [],
       filter: "",
       filterTimeout: 0,
       openIds: [],
       activeIds: [],
       viewMode: 0,
-      undoRedoCache: createUndoRedoCache(),
-      undoRedo: new EasyUndoRedo({
-        stackLength: 20,
-        initialValue: null,
-      }),
+      undoRedo: createUndoRedo(50),
     };
   },
   computed: {
@@ -290,54 +241,60 @@ export default {
         { caseSensitive: false }
       );
 
-      this.treeView = this.tree.render();
-      this.filteredTreeView = this.treeView;
-      this.openIds = [this.treeView[0].id];
+      const treeView = this.tree.render();
+
+      this.filteredTreeView = treeView;
+      this.openIds = [treeView[0].id];
       this.activeIds = [];
       this.filter = "";
-      this.undoRedoCache.clearAll();
+      this.undoRedo.clear();
 
       this.updateDefaultSelected();
+      this.pushState();
     },
     pushState() {
-      this.$nextTick(() => {
-        // eslint-disable-next-line no-debugger
-        debugger;
-        // this.undoRedoCache.push({
-        //   // treeView: this.treeView,
-        //   openIds: this.openIds,
-        //   activeIds: this.activeIds,
-        //   viewMode: this.viewMode,
-        //   filter: this.filter,
-        // });
-        this.undoRedo.save(
-          JSON.parse(
-            JSON.stringify({
-              // treeView: this.treeView,
-              openIds: this.openIds,
-              activeIds: this.activeIds,
-              viewMode: this.viewMode,
-              filter: this.filter,
-            })
-          )
+      setTimeout(() => {
+        const selectedIds = getNodeValues(
+          this.tree.render(),
+          (values, node) => {
+            if (node.selected) {
+              values.push(node.id);
+            }
+          }
         );
+
+        const deletedIds = getNodeValues(this.tree.render(), (values, node) => {
+          if (node.deleted) {
+            values.push(node.id);
+          }
+        });
+
+        this.undoRedo.save({
+          selectedIds,
+          deletedIds,
+          openIds: this.openIds,
+          activeIds: this.activeIds,
+          viewMode: this.viewMode,
+          filter: this.filter,
+        });
       });
     },
-    undo() {
-      // eslint-disable-next-line no-debugger
-      debugger;
-      // const state = this.undoRedoCache.undo({
-      //   // treeView: this.treeView,
-      //   openIds: this.openIds,
-      //   activeIds: this.activeIds,
-      //   viewMode: this.viewMode,
-      //   filter: this.filter,
-      // });
-      const state = this.undoRedo.undo();
+    undoOrRedo(redo) {
+      const state = redo ? this.undoRedo.redo() : this.undoRedo.undo();
 
       if (!state) {
         return;
       }
+
+      setNodeValues(this.tree.render(), (node) => {
+        node.selected = state.selectedIds.includes(node.id);
+
+        const deleted = state.deletedIds.includes(node.id);
+
+        if (node.deleted !== deleted) {
+          this.deleteFolder(node, false);
+        }
+      });
 
       this.filter = state.filter;
 
@@ -347,31 +304,7 @@ export default {
       this.activeIds = state.activeIds;
       this.viewMode = state.viewMode;
     },
-    redo() {
-      // eslint-disable-next-line no-debugger
-      debugger;
-      // const state = this.undoRedoCache.redo({
-      //   // treeView: this.treeView,
-      //   openIds: this.openIds,
-      //   activeIds: this.activeIds,
-      //   viewMode: this.viewMode,
-      //   filter: this.filter,
-      // });
-      const state = this.undoRedo.redo();
-
-      if (!state) {
-        return;
-      }
-
-      this.filter = state.filter;
-
-      this.filterTree();
-
-      this.openIds = state.openIds;
-      this.activeIds = state.activeIds;
-      this.viewMode = state.viewMode;
-    },
-    deleteFolder(node) {
+    deleteFolder(node, pushState = true) {
       if (node.type !== "folder" || anyParentDeleted(node.parent)) {
         return;
       }
@@ -380,23 +313,28 @@ export default {
       node.disabled = node.deleted;
 
       setDisabled(node.children, node.deleted);
+
+      if (pushState) {
+        this.pushState();
+      }
     },
     getFileIcon(type) {
       return fileTypeIconMap[type] || "mdi-file";
     },
     filterTree() {
       const filter = this.filter || "";
+      const treeView = this.tree.render();
 
       if (!filter.trim()) {
-        this.filteredTreeView = this.treeView;
-        this.openIds = [this.treeView[0].id];
+        this.filteredTreeView = treeView;
+        this.openIds = [treeView[0].id];
         this.activeIds = [];
 
         return;
       }
 
       [this.openIds, this.activeIds, this.filteredTreeView] = filterTree(
-        this.treeView,
+        treeView,
         filter
       );
     },

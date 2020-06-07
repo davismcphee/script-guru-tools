@@ -59,6 +59,26 @@ const clearSelected = (tree) => {
   }
 };
 
+export const getNodeValues = (tree, addValue) => {
+  const values = [];
+
+  for (const node of tree) {
+    addValue(values, node);
+
+    values.push(...getNodeValues(node.children, addValue));
+  }
+
+  return values.flat();
+};
+
+export const setNodeValues = (tree, setValue) => {
+  for (const node of tree) {
+    setValue(node);
+
+    setNodeValues(node.children, setValue);
+  }
+};
+
 export const setDefaultSelected = (
   tree,
   gameFiles,
