@@ -3804,6 +3804,11 @@ easy-stack@^1.0.0:
   resolved "https://registry.yarnpkg.com/easy-stack/-/easy-stack-1.0.0.tgz#12c91b3085a37f0baa336e9486eac4bf94e3e788"
   integrity sha1-EskbMIWjfwuqM26UhurEv5Tj54g=
 
+easy-undo-redo@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/easy-undo-redo/-/easy-undo-redo-1.0.2.tgz#ae1d7e88e3467947ec840edc8206e010163dd711"
+  integrity sha512-fWG6bE4SxTYRIFZJkaf4PcJW3O8MipbgZdwIfjZB/KKBzoJwBxGPdMFKjnQmR+R60djsLsf6ojY6OhfnPHJ6zQ==
+
 ecc-jsbn@~0.1.1:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/ecc-jsbn/-/ecc-jsbn-0.1.2.tgz#3a83a904e54353287874c564b7549386849a98c9"

@@ -52,11 +52,12 @@ const getNodeByPathOrAdjustedPath = (tree, currentPath) => {
   return node;
 };
 
-const clearSelected = (tree) =>
-  tree.forEach((node) => {
+const clearSelected = (tree) => {
+  for (const node of tree) {
     node.selected = false;
     clearSelected(node.children);
-  });
+  }
+};
 
 export const setDefaultSelected = (
   tree,
@@ -188,4 +189,36 @@ export const filterTree = (tree, text) => {
   }
 
   return [openIds, activeIds, filteredTree];
+};
+
+export const setDisabled = (tree, disabled) => {
+  for (const node of tree) {
+    if (node.deleted) {
+      return;
+    }
+
+    node.disabled = disabled;
+
+    setDisabled(node.children, disabled);
+  }
+};
+
+export const anyParentDeleted = (node) =>
+  node && (node.deleted || anyParentDeleted(node.parent));
+
+export const filterSelected = (tree, selected) => {
+  let filteredTree = [];
+
+  for (const node of tree) {
+    const filteredChildren = filterSelected(node.children, selected);
+
+    if (node.selected === selected || filteredChildren.length) {
+      filteredTree.push({
+        ...node,
+        children: filteredChildren,
+      });
+    }
+  }
+
+  return filteredTree;
 };
