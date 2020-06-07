@@ -43,6 +43,9 @@ export const createFileTree = async (
           id: nodeId,
           name: part,
           path: currentPath,
+          selected: false,
+          deleted: false,
+          disabled: false,
           parent,
           children: [],
         };

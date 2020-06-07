@@ -6,7 +6,7 @@
       </v-col>
     </v-row>
     <v-row align="end">
-      <v-col cols="12" md="6" lg="4">
+      <v-col cols="12" md="6" lg="5" xl="4">
         <v-text-field
           :value="gameFolder"
           label="Your game folder"
@@ -14,6 +14,7 @@
           readonly
           outlined
           dense
+          hide-details
         >
           <v-tooltip slot="append" bottom>
             <template v-slot:activator="{ on }">
@@ -25,7 +26,7 @@
           </v-tooltip>
         </v-text-field>
       </v-col>
-      <v-col cols="12" md="6" lg="4">
+      <v-col cols="12" md="6" lg="5" xl="4">
         <v-text-field
           :value="existingFpp"
           label="Existing FPP file"
@@ -33,6 +34,7 @@
           readonly
           outlined
           dense
+          hide-details
         >
           <v-tooltip slot="append" bottom>
             <template v-slot:activator="{ on }">
@@ -51,47 +53,120 @@
       </v-col>
     </v-row>
     <v-row v-if="gameFolder">
-      <v-col cols="12" md="6" lg="4">
+      <v-col cols="12" lg="10" xl="8">
         <v-text-field
           v-model="filter"
           placeholder="Search for files"
           outlined
           dense
+          hide-details
           @keyup="filterTreeView"
         >
           <v-icon slot="append">mdi-magnify</v-icon>
         </v-text-field>
       </v-col>
-      <v-col>
-        <v-btn color="primary" rounded @click="exportFpp">
-          <v-icon left>mdi-content-save</v-icon>
-          Save FPP
-        </v-btn>
+    </v-row>
+    <v-row v-if="gameFolder">
+      <v-col class="d-flex align-center">
+        <v-btn-toggle v-model="viewMode" mandatory dense borderless>
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn v-on="on" @click="filterTree">
+                <v-icon color="primary"
+                  >mdi-checkbox-multiple-blank-outline</v-icon
+                >
+              </v-btn>
+            </template>
+            Show All
+          </v-tooltip>
+
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn v-on="on" @click="filterTree">
+                <v-icon color="primary">mdi-checkbox-blank-outline</v-icon>
+              </v-btn>
+            </template>
+            Show Unselected
+          </v-tooltip>
+
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn v-on="on" @click="filterTree">
+                <v-icon color="primary">mdi-check-box-outline</v-icon>
+              </v-btn>
+            </template>
+            Show Selected
+          </v-tooltip>
+        </v-btn-toggle>
+
+        <v-btn-group class="ml-5" dense borderless>
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn @click="$refs.tree.updateAll(false)" :elevation="0">
+                <v-icon color="primary" v-on="on">mdi-undo</v-icon>
+              </v-btn>
+            </template>
+            Undo
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn @click="$refs.tree.updateAll(false)" :elevation="0">
+                <v-icon color="primary" v-on="on">mdi-redo</v-icon>
+              </v-btn>
+            </template>
+            Redo
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn @click="$refs.tree.updateAll(false)" :elevation="0">
+                <v-icon color="primary" v-on="on">mdi-collapse-all</v-icon>
+              </v-btn>
+            </template>
+            Collapse All
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn @click="exportFpp" :elevation="0">
+                <v-icon color="primary" v-on="on">mdi-content-save</v-icon>
+              </v-btn>
+            </template>
+            Save FPP File
+          </v-tooltip>
+        </v-btn-group>
       </v-col>
     </v-row>
     <v-row v-if="gameFolder">
       <v-col>
         <v-treeview
           ref="tree"
-          :value="filteredSelectedIds"
-          :items="filteredTreeView"
+          :items="filteredTreeViewWithViewMode"
           :open.sync="openIds"
           :active.sync="activeIds"
-          selected-color="primary"
-          selectable
-          selection-type="independent"
           dense
           open-on-click
           multiple-active
-          @input="onInput"
         >
-          <template #prepend="{ item, open }">
-            <v-icon v-if="item.type === 'folder'">
-              {{ open ? "mdi-folder-open" : "mdi-folder" }}
-            </v-icon>
-            <v-icon v-else>
-              {{ getFileIcon(item.type) }}
-            </v-icon>
+          <template #label="{ item, open }">
+            <div class="d-flex align-center">
+              <v-checkbox
+                v-model="tree.getNodeById(item.id).selected"
+                :disabled="item.disabled"
+                class="mt-0 pt-0"
+                hide-details
+                :ripple="false"
+                @input.stop
+                @click.stop
+              />
+
+              <v-icon v-if="item.type === 'folder'" class="mr-2">
+                {{ open ? "mdi-folder-open" : "mdi-folder" }}
+              </v-icon>
+              <v-icon v-else class="mr-2">
+                {{ getFileIcon(item.type) }}
+              </v-icon>
+
+              <span @contextmenu="deleteFolder(item)">{{ item.name }}</span>
+            </div>
           </template>
         </v-treeview>
       </v-col>
@@ -106,11 +181,10 @@ import * as path from "path";
 import { glob } from "../filesystem/glob";
 import { writeFile } from "../filesystem/fs";
 import {
-  getDefaultSelectedIds,
+  setDefaultSelected,
   getExistingFppPaths,
   generateFppFile,
   filterTree,
-  getSelectedIds,
 } from "../fpp-manager/helpers";
 
 const fileTypeIconMap = {
@@ -118,6 +192,43 @@ const fileTypeIconMap = {
   image: "mdi-file-image",
   text: "mdi-file-document",
   video: "mdi-file-video",
+};
+
+const viewModes = {
+  all: 0,
+  unselected: 1,
+  selected: 2,
+};
+
+const setDisabled = (tree, disabled) =>
+  tree.forEach((node) => {
+    if (node.deleted) {
+      return;
+    }
+
+    node.disabled = disabled;
+
+    setDisabled(node.children, disabled);
+  });
+
+const anyParentDeleted = (node) =>
+  node && (node.deleted || anyParentDeleted(node.parent));
+
+const filterSelected = (tree, selected) => {
+  let filteredTree = [];
+
+  for (const node of tree) {
+    const filteredChildren = filterSelected(node.children, selected);
+
+    if (node.selected === selected || filteredChildren.length) {
+      filteredTree.push({
+        ...node,
+        children: filteredChildren,
+      });
+    }
+  }
+
+  return filteredTree;
 };
 
 export default {
@@ -132,12 +243,20 @@ export default {
       filteredTreeView: [],
       filter: "",
       filterTimeout: 0,
-      selectedIds: [],
-      filteredSelectedIds: [],
       openIds: [],
       activeIds: [],
-      ignoreOnInput: false,
+      viewMode: 0,
     };
+  },
+  computed: {
+    filteredTreeViewWithViewMode() {
+      return this.viewMode === viewModes.all
+        ? this.filteredTreeView
+        : filterSelected(
+            this.filteredTreeView,
+            this.viewMode === viewModes.selected
+          );
+    },
   },
   methods: {
     async initialize() {
@@ -152,83 +271,44 @@ export default {
       this.activeIds = [];
       this.filter = "";
 
-      this.updateDefaultSelectedIds();
+      this.updateDefaultSelected();
+    },
+    deleteFolder(node) {
+      if (node.type !== "folder" || anyParentDeleted(node.parent)) {
+        return;
+      }
+
+      node.deleted = !node.deleted;
+      node.disabled = node.deleted;
+
+      setDisabled(node.children, node.deleted);
     },
     getFileIcon(type) {
       return fileTypeIconMap[type] || "mdi-file";
     },
-    filterTreeView(e) {
-      clearTimeout(this.filterTimeout);
+    filterTree() {
+      const filter = this.filter || "";
 
-      const filter = e.target.value || "";
-
-      this.filterTimeout = setTimeout(() => {
-        if (!filter.trim()) {
-          this.ignoreOnInput = true;
-          this.filteredTreeView = this.treeView;
-          this.filteredSelectedIds = [...this.selectedIds];
-          this.openIds = [this.treeView[0].id];
-          this.activeIds = [];
-
-          return;
-        }
-
-        [this.openIds, this.activeIds, this.filteredTreeView] = filterTree(
-          this.treeView,
-          filter
-        );
-
-        this.filteredSelectedIds = getSelectedIds(
-          this.filteredTreeView,
-          this.selectedIds
-        );
-
-        this.ignoreOnInput = true;
-      }, 500);
-    },
-    onInput(currentSelectedIds) {
-      if (this.ignoreOnInput) {
-        this.ignoreOnInput = false;
+      if (!filter.trim()) {
+        this.filteredTreeView = this.treeView;
+        this.openIds = [this.treeView[0].id];
+        this.activeIds = [];
 
         return;
       }
 
-      if (this.filteredSelectedIds.length < currentSelectedIds.length) {
-        const addedId = currentSelectedIds.filter(
-          (id) => !this.filteredSelectedIds.includes(id)
-        )[0];
-
-        this.selectedIds.push(addedId);
-      } else if (this.filteredSelectedIds.length > currentSelectedIds.length) {
-        const removedId = this.filteredSelectedIds.filter(
-          (id) => !currentSelectedIds.includes(id)
-        )[0];
-
-        this.selectedIds = this.selectedIds.filter((id) => id !== removedId);
-      }
-
-      this.filteredSelectedIds = currentSelectedIds;
-
-      this.$nextTick(() =>
-        Object.values(this.$refs.tree.nodes).forEach((node) => {
-          if (node.isIndeterminate) {
-            node.isIndeterminate = false;
-
-            if (node.vnode) {
-              node.vnode.isIndeterminate = false;
-            }
-          }
-        })
+      [this.openIds, this.activeIds, this.filteredTreeView] = filterTree(
+        this.treeView,
+        filter
       );
     },
-    updateDefaultSelectedIds() {
-      this.selectedIds = getDefaultSelectedIds(
-        this.tree,
-        this.gameFiles,
-        this.existingFppPaths
-      );
+    filterTreeView() {
+      clearTimeout(this.filterTimeout);
 
-      this.filteredSelectedIds = this.selectedIds;
+      this.filterTimeout = setTimeout(() => this.filterTree(), 500);
+    },
+    updateDefaultSelected() {
+      setDefaultSelected(this.tree, this.gameFiles, this.existingFppPaths);
     },
     selectGameFolder() {
       dialog.showOpenDialog(
@@ -251,7 +331,7 @@ export default {
             p.substring(this.gameFolder.length + 1)
           );
 
-          this.updateDefaultSelectedIds();
+          this.updateDefaultSelected();
         }
       );
     },
@@ -276,16 +356,12 @@ export default {
           this.existingFpp = files[0];
           this.existingFppPaths = await getExistingFppPaths(this.existingFpp);
 
-          this.updateDefaultSelectedIds();
+          this.updateDefaultSelected();
         }
       );
     },
     async exportFpp() {
-      const fppFile = generateFppFile(
-        this.tree,
-        this.gameFiles,
-        this.selectedIds
-      );
+      const fppFile = generateFppFile(this.tree, this.gameFiles);
 
       const saveResult = await dialog.showSaveDialog(
         BrowserWindow.getFocusedWindow(),

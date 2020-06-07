@@ -52,92 +52,95 @@ const getNodeByPathOrAdjustedPath = (tree, currentPath) => {
   return node;
 };
 
-export const getDefaultSelectedIds = (
+const clearSelected = (tree) =>
+  tree.forEach((node) => {
+    node.selected = false;
+    clearSelected(node.children);
+  });
+
+export const setDefaultSelected = (
   tree,
   gameFiles,
   { adds = [], deletes = [] }
 ) => {
-  const selectedIds = [];
+  clearSelected(tree.render());
 
   gameFiles.forEach((currentPath) => {
     let node = getNodeByPathOrAdjustedPath(tree, currentPath);
 
-    if (node && node.type !== "folder" && !selectedIds.includes(node.id)) {
-      selectedIds.push(node.id);
+    if (node && node.type !== "folder") {
+      node.selected = true;
     }
   });
 
   adds.forEach((currentPath) => {
     const node = tree.getNodeByPath(currentPath);
 
-    if (node && !selectedIds.includes(node.id)) {
-      selectedIds.push(node.id);
+    if (node) {
+      node.selected = true;
     }
   });
 
   deletes.forEach((currentPath) => {
     const node = tree.getNodeByPath(currentPath);
 
-    if (node && selectedIds.includes(node.id)) {
-      selectedIds.splice(selectedIds.indexOf(node.id), 1);
+    if (node) {
+      node.selected = false;
     }
   });
-
-  return selectedIds;
 };
 
-const getAddedIds = (tree, gameFileIds, selectedIds) =>
+const getAddedNodes = (tree, gameFileNodes) =>
   tree
     .map((node) => {
-      if (selectedIds.includes(node.id) && !gameFileIds.includes(node.id)) {
-        return [node.id];
+      if (node.selected && !gameFileNodes.includes(node)) {
+        return [node];
       }
 
-      return [...getAddedIds(node.children, gameFileIds, selectedIds)];
+      return [...getAddedNodes(node.children, gameFileNodes)];
     })
     .flat();
 
-const containsNodeOrParentId = (ids, node) => {
-  return (
-    node != null &&
-    (ids.includes(node.id) || containsNodeOrParentId(ids, node.parent))
-  );
-};
+const getDeletedNodes = (tree, gameFileNodes) =>
+  tree
+    .map((node) => {
+      if (
+        node.deleted ||
+        (node.type !== "folder" && !gameFileNodes.includes(node))
+      ) {
+        return [node];
+      }
 
-export const generateFppFile = (tree, gameFiles, selectedIds) => {
-  const gameFileIds = gameFiles
+      return [...getDeletedNodes(node.children, gameFileNodes)];
+    })
+    .flat();
+
+export const generateFppFile = (tree, gameFiles) => {
+  const gameFileNodes = gameFiles
     .map((path) => {
       const node = getNodeByPathOrAdjustedPath(tree, path);
 
       if (node && node.type !== "folder") {
-        return node.id;
+        return node;
       }
 
       return false;
     })
     .filter(Boolean);
 
-  const addedIds = getAddedIds(tree.render(), gameFileIds, selectedIds);
+  const addedPaths = getAddedNodes(tree.render(), gameFileNodes).map((node) => {
+    const nodePath = node.path.substring(6).replace(/\//g, "\\");
 
-  const deletedIds = gameFileIds.filter(
-    (id) => !containsNodeOrParentId(selectedIds, tree.getNodeById(id))
+    return node.type === "file" ? nodePath + "\\" : nodePath;
+  });
+
+  const deletedPaths = getDeletedNodes(tree.render(), gameFileNodes).map(
+    (node) => {
+      const nodePath = node.path.substring(6).replace(/\//g, "\\");
+
+      return node.type === "file" ? nodePath + "\\" : nodePath;
+    }
   );
-
-  const addedPaths = addedIds
-    .map((id) => tree.getNodeById(id))
-    .map((node) => {
-      const nodePath = node.path.substring(6).replace(/\//g, "\\");
-
-      return node.type === "file" ? nodePath + "\\" : nodePath;
-    });
-
-  const deletedPaths = deletedIds
-    .map((id) => tree.getNodeById(id))
-    .map((node) => {
-      const nodePath = node.path.substring(6).replace(/\//g, "\\");
-
-      return node.type === "file" ? nodePath + "\\" : nodePath;
-    });
 
   let fppContents = [];
 
@@ -150,20 +153,6 @@ export const generateFppFile = (tree, gameFiles, selectedIds) => {
   }
 
   return fppContents.join("\n");
-};
-
-export const getSelectedIds = (tree, currentSelectedIds) => {
-  const selectedIds = [];
-
-  for (const node of tree) {
-    if (currentSelectedIds.includes(node.id)) {
-      selectedIds.push(node.id);
-    }
-
-    selectedIds.push(...getSelectedIds(node.children, currentSelectedIds));
-  }
-
-  return selectedIds;
 };
 
 export const filterTree = (tree, text) => {

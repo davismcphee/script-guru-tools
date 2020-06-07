@@ -27,6 +27,7 @@ export const createPathTree = (paths = [], { caseSensitive = true } = {}) => {
           id: nodeId,
           name: part,
           path: currentPath,
+          deleted: false,
           parent,
           children: [],
         };
