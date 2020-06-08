@@ -114,7 +114,11 @@ export const setDefaultSelected = (
 const getAddedNodes = (tree, gameFileNodes) =>
   tree
     .map((node) => {
-      if (node.selected && !gameFileNodes.includes(node)) {
+      if (
+        node.selected &&
+        !gameFileNodes.includes(node) &&
+        !anyParentDeleted(node)
+      ) {
         return [node];
       }
 
@@ -127,7 +131,9 @@ const getDeletedNodes = (tree, gameFileNodes) =>
     .map((node) => {
       if (
         node.deleted ||
-        (node.type !== "folder" && !gameFileNodes.includes(node))
+        (node.type !== "folder" &&
+          !node.selected &&
+          gameFileNodes.includes(node))
       ) {
         return [node];
       }
@@ -214,7 +220,7 @@ export const filterTree = (tree, text) => {
 export const setDisabled = (tree, disabled) => {
   for (const node of tree) {
     if (node.deleted) {
-      return;
+      continue;
     }
 
     node.disabled = disabled;
