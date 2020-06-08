@@ -150,7 +150,7 @@
             <div class="d-flex align-center">
               <v-checkbox
                 v-model="tree.getNodeById(item.id).selected"
-                :disabled="item.disabled"
+                :disabled="tree.getNodeById(item.id).disabled"
                 class="mt-0 pt-0"
                 hide-details
                 :ripple="false"
@@ -182,7 +182,7 @@ import * as path from "path";
 import { glob } from "../filesystem/glob";
 import { writeFile } from "../filesystem/fs";
 import {
-  setDefaultSelected,
+  setDefaultNodeValues,
   getExistingFppPaths,
   generateFppFile,
   filterTree,
@@ -235,23 +235,6 @@ export default {
     },
   },
   methods: {
-    async initialize() {
-      this.tree = await createFileTree(
-        path.resolve(this.$store.state.userdata.installationPath, "Files"),
-        { caseSensitive: false }
-      );
-
-      const treeView = this.tree.render();
-
-      this.filteredTreeView = treeView;
-      this.openIds = [treeView[0].id];
-      this.activeIds = [];
-      this.filter = "";
-      this.undoRedo.clear();
-
-      this.updateDefaultSelected();
-      this.pushState();
-    },
     pushState() {
       setTimeout(() => {
         const selectedIds = getNodeValues(
@@ -343,8 +326,8 @@ export default {
 
       this.filterTimeout = setTimeout(() => this.filterTree(), 500);
     },
-    updateDefaultSelected() {
-      setDefaultSelected(this.tree, this.gameFiles, this.existingFppPaths);
+    updateDefaultNodeValues() {
+      setDefaultNodeValues(this.tree, this.gameFiles, this.existingFppPaths);
     },
     selectGameFolder() {
       dialog.showOpenDialog(
@@ -357,8 +340,17 @@ export default {
             return;
           }
 
-          await this.initialize();
+          this.tree = await createFileTree(
+            path.resolve(this.$store.state.userdata.installationPath, "Files"),
+            { caseSensitive: false }
+          );
 
+          const treeView = this.tree.render();
+
+          this.filteredTreeView = treeView;
+          this.openIds = [treeView[0].id];
+          this.activeIds = [];
+          this.filter = "";
           this.gameFolder = files[0];
 
           const paths = await glob(path.join(this.gameFolder, "Files/**/*"));
@@ -367,7 +359,9 @@ export default {
             p.substring(this.gameFolder.length + 1)
           );
 
-          this.updateDefaultSelected();
+          this.undoRedo.clear();
+          this.updateDefaultNodeValues();
+          this.pushState();
         }
       );
     },
@@ -392,7 +386,9 @@ export default {
           this.existingFpp = files[0];
           this.existingFppPaths = await getExistingFppPaths(this.existingFpp);
 
-          this.updateDefaultSelected();
+          this.undoRedo.clear();
+          this.updateDefaultNodeValues();
+          this.pushState();
         }
       );
     },

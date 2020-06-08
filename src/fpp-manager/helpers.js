@@ -52,13 +52,6 @@ const getNodeByPathOrAdjustedPath = (tree, currentPath) => {
   return node;
 };
 
-const clearSelected = (tree) => {
-  for (const node of tree) {
-    node.selected = false;
-    clearSelected(node.children);
-  }
-};
-
 export const getNodeValues = (tree, addValue) => {
   const values = [];
 
@@ -79,12 +72,16 @@ export const setNodeValues = (tree, setValue) => {
   }
 };
 
-export const setDefaultSelected = (
+export const setDefaultNodeValues = (
   tree,
   gameFiles,
   { adds = [], deletes = [] }
 ) => {
-  clearSelected(tree.render());
+  setNodeValues(tree.render(), (node) => {
+    node.selected = false;
+    node.deleted = false;
+    node.disabled = false;
+  });
 
   gameFiles.forEach((currentPath) => {
     let node = getNodeByPathOrAdjustedPath(tree, currentPath);
@@ -107,6 +104,13 @@ export const setDefaultSelected = (
 
     if (node) {
       node.selected = false;
+    }
+
+    if (node.type === "folder") {
+      node.deleted = true;
+      node.disabled = true;
+
+      setDisabled(node.children, true);
     }
   });
 };
