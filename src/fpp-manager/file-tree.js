@@ -3,8 +3,6 @@ import * as mime from "mime";
 import { createNodePathMap } from "./node-path-map";
 import { glob } from "../filesystem/glob";
 
-const isFile = (p) => !!path.extname(p);
-
 export const createFileTree = async (
   rootPath = "",
   { caseSensitive = true } = {}
@@ -57,12 +55,12 @@ export const createFileTree = async (
           parent.children.push(node);
         }
 
-        if (
-          index === parts.length - 1 &&
-          isFile(path.join(newRootPath, currentPath))
-        ) {
+        const extname = path.extname(part);
+
+        if (index === parts.length - 1 && extname) {
           const nodeMime = mime.getType(part) || "";
 
+          node.extname = extname.substring(1).toLowerCase();
           node.mime = nodeMime;
           node.type = nodeMime.substr(0, nodeMime.indexOf("/")) || "unknown";
         } else {

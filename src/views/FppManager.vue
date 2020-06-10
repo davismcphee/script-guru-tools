@@ -161,7 +161,7 @@
                 {{ open ? "mdi-folder-open" : "mdi-folder" }}
               </v-icon>
               <v-icon v-else class="mr-2">
-                {{ getFileIcon(item.type) }}
+                {{ getFileIcon(item) }}
               </v-icon>
 
               <span @contextmenu="deleteFolder(tree.getNodeById(item.id))">{{
@@ -201,6 +201,29 @@ const fileTypeIconMap = {
   video: "mdi-file-video",
 };
 
+const fileExtensionIconMap = {
+  fpe: "mdi-file-cog",
+  pfb: "mdi-home-city",
+  x: "mdi-cube-outline",
+  dbo: "mdi-cube-outline",
+  fbx: "mdi-cube-outline",
+  cci: "mdi-arm-flex",
+  dat: "mdi-file",
+  cfg: "mdi-file",
+  blob: "mdi-file",
+  fx: "mdi-lightbulb-on",
+  fnt: "mdi-format-font",
+  exe: "mdi-application",
+  dll: "mdi-file-code",
+  ele: "mdi-file-cog",
+  ent: "mdi-file-cog",
+  obs: "mdi-file-cog",
+  way: "mdi-file-cog",
+  ter: "mdi-terrain",
+  fpm: "mdi-map",
+  fpp: "mdi-hand-pointing-up",
+};
+
 const viewModes = {
   all: 0,
   unselected: 1,
@@ -211,6 +234,7 @@ export default {
   name: "FppManager",
   data() {
     return {
+      dirty: false,
       gameFolder: "",
       gameFiles: [],
       existingFpp: "",
@@ -234,7 +258,32 @@ export default {
           );
     },
   },
+  mounted() {
+    window.addEventListener("beforeunload", this.handleWindowClose);
+  },
+  beforeDestroy() {
+    window.removeEventListener("beforeunload", this.handleWindowClose);
+  },
   methods: {
+    preventClose() {
+      return dialog.showMessageBoxSync({
+        type: "question",
+        buttons: ["Leave", "Keep Working"],
+        defaultId: 0,
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Are you sure you want to leave?",
+      });
+    },
+    handleWindowClose(event) {
+      if (!this.dirty) {
+        return;
+      }
+
+      if (this.preventClose()) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    },
     pushState() {
       setTimeout(() => {
         const selectedIds = getNodeValues(
@@ -261,6 +310,8 @@ export default {
           filter: this.filter,
         });
       });
+
+      this.dirty = true;
     },
     undoOrRedo(redo) {
       const state = redo ? this.undoRedo.redo() : this.undoRedo.undo();
@@ -301,8 +352,12 @@ export default {
         this.pushState();
       }
     },
-    getFileIcon(type) {
-      return fileTypeIconMap[type] || "mdi-file";
+    getFileIcon(item) {
+      return (
+        fileExtensionIconMap[item.extname] ||
+        fileTypeIconMap[item.type] ||
+        "mdi-file-question"
+      );
     },
     filterTree() {
       const filter = this.filter || "";
@@ -413,7 +468,16 @@ export default {
       }
 
       await writeFile(saveResult.filePath, fppFile);
+
+      this.dirty = false;
     },
+  },
+  beforeRouteLeave(_, __, next) {
+    if (this.dirty && this.preventClose()) {
+      next(false);
+    } else {
+      next();
+    }
   },
 };
 </script>
