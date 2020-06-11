@@ -9476,6 +9476,11 @@ thread-loader@^2.1.3:
     loader-utils "^1.1.0"
     neo-async "^2.6.0"
 
+three@^0.105.2:
+  version "0.105.2"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.105.2.tgz#d135f1549bdcf5a9acd904ba3dbf9198a0268984"
+  integrity sha512-L3Al37k4g3hVbgFFS251UVtIc25chhyN0/RvXzR0C+uIBToV6EKDG+MZzEXm9L2miGUVMK27W46/VkP6WUZXMg==
+
 throttleit@0.0.2:
   version "0.0.2"
   resolved "https://registry.yarnpkg.com/throttleit/-/throttleit-0.0.2.tgz#cfedf88e60c00dd9697b61fdd2a8343a9b680eaf"
@@ -10012,6 +10017,13 @@ vm-browserify@^1.0.1:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/vm-browserify/-/vm-browserify-1.1.2.tgz#78641c488b8e6ca91a75f511e7a3b32a86e5dda0"
   integrity sha512-2ham8XPWTONajOR0ohOKOHXkm3+gaBmGut3SRuu75xLd/RRaY6vqgh8NBYYk7+RW3u5AtzPQZG8F10LHkl0lAQ==
+
+vue-3d-model@^1.2.2:
+  version "1.2.2"
+  resolved "https://registry.yarnpkg.com/vue-3d-model/-/vue-3d-model-1.2.2.tgz#fc88ded3cbd32af8cbe4f989dae9bbd4cef3b41b"
+  integrity sha512-70Xhc42yf/qrVIICM58g4r9PHI3XqbVIKXHaExE/xAszQN4UNbm1OpPU0vwx/j70oUt1NGWGzw9Ic2XAy9vZEg==
+  dependencies:
+    three "^0.105.2"
 
 vue-cli-plugin-electron-builder@^1.4.6:
   version "1.4.6"

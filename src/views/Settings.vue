@@ -38,6 +38,8 @@
             <span>Select installation path</span>
           </v-tooltip>
         </v-text-field>
+
+        <ModelObj src="/assets/IronMan.obj"></ModelObj>
       </v-col>
     </v-row>
   </div>
@@ -47,9 +49,13 @@
 const { dialog } = require("electron").remote;
 import * as path from "path";
 import { isFile, isDirectory } from "../filesystem/fs";
+import { ModelObj } from "vue-3d-model";
 
 export default {
   name: "Settings",
+  components: {
+    ModelObj,
+  },
   data() {
     return {
       invalidPath: null,
