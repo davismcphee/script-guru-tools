@@ -6,9 +6,10 @@ import {
   createProtocol,
   /* installVueDevtools */
 } from "vue-cli-plugin-electron-builder/lib";
-import { initializeGlob } from "./filesystem/glob";
 import * as path from "path";
+import { initializeGlob } from "./filesystem/glob";
 import { initializeFs } from "./filesystem/fs";
+import { initializeExec } from "./filesystem/exec";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -108,3 +109,7 @@ if (isDevelopment) {
 // Initialize IPC handlers
 initializeGlob();
 initializeFs();
+initializeExec();
+
+global.myPath = __dirname;
+global.myPath2 = process.resourcesPath;

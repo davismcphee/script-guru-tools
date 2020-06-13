@@ -1,7 +1,8 @@
 import Vue from "vue";
 import VueRouter from "vue-router";
-import Settings from "../views/Settings.vue";
-import FppManager from "../views/FppManager.vue";
+import Settings from "../views/Settings";
+import FppManager from "../views/FppManager";
+import BatchModelConverter from "../views/BatchModelConverter";
 
 Vue.use(VueRouter);
 
@@ -15,6 +16,11 @@ const routes = [
     path: "/fpp-manager",
     name: "FPP Manager",
     component: FppManager,
+  },
+  {
+    path: "/batch-model-converter",
+    name: "Batch Model Converter",
+    component: BatchModelConverter,
   },
 ];
 

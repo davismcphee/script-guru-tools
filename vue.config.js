@@ -24,6 +24,14 @@ module.exports = {
           perMachine: true,
           allowToChangeInstallationDirectory: true,
         },
+        files: ["**/*"],
+        extraFiles: [
+          {
+            from: "src/external",
+            to: "src/external",
+            filter: ["**/*"],
+          },
+        ],
       },
     },
   },

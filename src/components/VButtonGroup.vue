@@ -6,7 +6,7 @@
 
 <style lang="scss">
 .v-btn-group {
-  border-radius: 2px;
+  border-radius: 4px;
   display: inline-flex;
 
   .theme--dark & {
@@ -30,11 +30,11 @@
     }
 
     &:first-child {
-      border-radius: 2px 0 0 2px;
+      border-radius: 4px 0 0 4px;
     }
 
     &:last-child {
-      border-radius: 0 2px 2px 0;
+      border-radius: 0 4px 4px 0;
     }
   }
 }

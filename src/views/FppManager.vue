@@ -10,7 +10,6 @@
         <v-text-field
           :value="gameFolder"
           label="Your game folder"
-          placeholder=" "
           readonly
           outlined
           dense
@@ -30,7 +29,6 @@
         <v-text-field
           :value="existingFpp"
           label="Existing FPP file"
-          placeholder=" "
           readonly
           outlined
           dense
@@ -123,6 +121,14 @@
               </v-btn>
             </template>
             Collapse All
+          </v-tooltip>
+          <v-tooltip bottom>
+            <template #activator="{ on }">
+              <v-btn @click="expandMany" :elevation="0">
+                <v-icon color="primary" v-on="on">mdi-expand-all</v-icon>
+              </v-btn>
+            </template>
+            Expand Many
           </v-tooltip>
           <v-tooltip bottom>
             <template #activator="{ on }">
@@ -470,6 +476,23 @@ export default {
       await writeFile(saveResult.filePath, fppFile);
 
       this.dirty = false;
+    },
+    expandMany() {
+      const expand = (tree, openIds = [], max = 50) => {
+        (tree || []).forEach((node) => {
+          if (node.type !== "folder" || openIds.length === max) {
+            return;
+          }
+
+          openIds.push(node.id);
+
+          expand(node.children, openIds, max);
+        });
+
+        return openIds;
+      };
+
+      this.openIds = expand(this.filteredTreeViewWithViewMode);
     },
   },
   beforeRouteLeave(_, __, next) {
