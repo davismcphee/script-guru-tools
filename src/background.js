@@ -10,6 +10,7 @@ import * as path from "path";
 import { initializeGlob } from "./filesystem/glob";
 import { initializeFs } from "./filesystem/fs";
 import { initializeExec } from "./filesystem/exec";
+import { initializeShell } from "./filesystem/shell";
 
 const isDevelopment = process.env.NODE_ENV !== "production";
 
@@ -110,6 +111,4 @@ if (isDevelopment) {
 initializeGlob();
 initializeFs();
 initializeExec();
-
-global.myPath = __dirname;
-global.myPath2 = process.resourcesPath;
+initializeShell();

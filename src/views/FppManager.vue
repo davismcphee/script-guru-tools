@@ -1,8 +1,92 @@
 <template>
   <div>
     <v-row>
-      <v-col>
-        <h1 class="display-1">FPP Manager</h1>
+      <v-col class="d-flex">
+        <h1 class="d-inline display-1">FPP Manager</h1>
+        <v-dialog v-model="helpDialogOpen" max-width="800">
+          <template #activator="{ on, attrs }">
+            <v-btn
+              class="mt-1"
+              icon
+              right
+              color="primary"
+              v-bind="attrs"
+              v-on="on"
+            >
+              <v-icon>mdi-help-circle-outline</v-icon>
+            </v-btn>
+          </template>
+
+          <v-card>
+            <v-card-title class="headline">FPP Manager Help</v-card-title>
+
+            <v-card-text>
+              <p>
+                If you want to learn what an FPP file is and how to use one, you
+                can read about it in
+                <a
+                  href="#"
+                  @click="
+                    openExternal('https://forum.game-guru.com/thread/220545')
+                  "
+                  >this forum post</a
+                >.
+              </p>
+
+              <h4 class="mb-1">Instructions</h4>
+              <ol>
+                <li>Build your standalone GameGuru game.</li>
+                <li>
+                  Open ScriptGuru Tools, navigate to FPP Manager, and open the
+                  root folder of your standalone game.
+                </li>
+                <li>
+                  Optionally select an existing FPP file to use as a base. This
+                  is useful when you want to modify an existing FPP file to
+                  include and exclude files and folders after additional
+                  standalone game testing.
+                </li>
+                <li>
+                  Modify the FPP file to include and exclude files and folders
+                  based on the assets your standalone game requires.
+                </li>
+                <li>
+                  Export the FPP file and rebuild your standalone game using the
+                  exported FPP file.
+                </li>
+                <li>
+                  The assets included in your standalone game should now reflect
+                  the contents of the FPP file.
+                </li>
+              </ol>
+
+              <h4 class="mt-4 mb-1">Hints</h4>
+              <ul>
+                <li>
+                  Files and folders are included or excluded respectively by
+                  checking or unchecking their checkboxes.
+                </li>
+                <li>
+                  Folders can be explicitly excluded from a standalone game by
+                  right-clicking their labels. Explicitly excluded folders are
+                  marked by faded labels.
+                </li>
+                <li>
+                  The included/excluded state of files and subfolders of
+                  included or excluded folders are ignored.
+                </li>
+              </ul>
+            </v-card-text>
+
+            <v-card-actions>
+              <v-spacer></v-spacer>
+
+              <v-btn color="primary" text @click="helpDialogOpen = false">
+                Close
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </v-col>
     </v-row>
     <v-row align="end">
@@ -199,6 +283,7 @@ import {
   setNodeValues,
 } from "../fpp-manager/helpers";
 import { createUndoRedo } from "../state/undo-redo";
+import { openExternal } from "../filesystem/shell";
 
 const fileTypeIconMap = {
   audio: "mdi-file-music",
@@ -252,6 +337,7 @@ export default {
       activeIds: [],
       viewMode: 0,
       undoRedo: createUndoRedo(50),
+      helpDialogOpen: false,
     };
   },
   computed: {
@@ -493,6 +579,9 @@ export default {
       };
 
       this.openIds = expand(this.filteredTreeViewWithViewMode);
+    },
+    openExternal(url) {
+      openExternal(url);
     },
   },
   beforeRouteLeave(_, __, next) {

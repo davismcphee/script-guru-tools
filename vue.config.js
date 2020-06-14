@@ -9,29 +9,20 @@ module.exports = {
   pluginOptions: {
     electronBuilder: {
       builderOptions: {
+        appId: "com.scriptguru.tools",
         productName: "ScriptGuru Tools",
-        copyright: "Copyright © 2020 ScriptGuru",
-        win: {
-          target: [
-            {
-              target: "zip",
-              arch: ["x64", "ia32"],
-            },
-          ],
-        },
-        nsis: {
-          oneClick: false,
-          perMachine: true,
-          allowToChangeInstallationDirectory: true,
-        },
+        copyright: "Copyright © 2020 Davis McPhee",
         files: ["**/*"],
         extraFiles: [
           {
-            from: "src/external",
-            to: "src/external",
+            from: "external",
+            to: "external",
             filter: ["**/*"],
           },
         ],
+        nsis: {
+          perMachine: true,
+        },
       },
     },
   },

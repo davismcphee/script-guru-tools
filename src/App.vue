@@ -26,7 +26,11 @@
             >
           </v-list-item-content>
         </v-list-item>
-        <v-list-item link to="/batch-model-converter">
+        <v-list-item
+          link
+          to="/batch-model-converter"
+          :disabled="!Boolean($store.state.userdata.installationPath)"
+        >
           <v-list-item-action>
             <v-icon color="primary">mdi-cube</v-icon>
           </v-list-item-action>

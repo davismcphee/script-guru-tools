@@ -40,7 +40,7 @@
                 <v-icon>mdi-folder</v-icon>
               </v-btn>
             </template>
-            <span>Select installation path</span>
+            <span>Select output folder</span>
           </v-tooltip>
         </v-text-field>
       </v-col>
@@ -56,6 +56,36 @@
           hide-details
         />
       </v-col>
+      <v-col cols="12" md="6">
+        <div class="d-flex">
+          <v-text-field
+            v-model="fileNameTemplate"
+            label="File name template"
+            outlined
+            dense
+            hide-details
+          />
+          <v-tooltip bottom>
+            <template v-slot:activator="{ on }">
+              <v-icon right v-on="on">mdi-help-circle-outline</v-icon>
+            </template>
+            Usage:
+            <ul class="mb-2">
+              <li><code>{i}</code> = index</li>
+              <li><code>{n}</code> = number (index + 1)</li>
+              <li><code>{name}</code> = file name</li>
+            </ul>
+            <p class="mb-3">
+              Example:
+              <br />
+              <code>{name}-exported-{n}</code>
+            </p>
+            <em>Leave blank to keep default file names</em>
+          </v-tooltip>
+        </div>
+      </v-col>
+    </v-row>
+    <v-row>
       <v-col>
         <v-btn
           color="primary"
@@ -67,9 +97,12 @@
         </v-btn>
       </v-col>
     </v-row>
-    <v-row v-if="converting">
+    <v-row>
       <v-col>
-        <v-progress-linear :value="convertProgress"></v-progress-linear>
+        <v-progress-linear
+          v-if="converting"
+          :value="convertProgress"
+        ></v-progress-linear>
       </v-col>
     </v-row>
   </div>
@@ -161,6 +194,7 @@ export default {
       outputFolder: "",
       outputFormat: ".X",
       outputItems: [".DAE", ".OBJ", ".PLY", ".STL", ".X", ".3DS"],
+      fileNameTemplate: "",
       converting: false,
       convertProgress: 0,
     };
@@ -193,19 +227,29 @@ export default {
         this.converting = true;
 
         const filePaths = await glob(path.join(this.inputFolder, "*.*"));
+
         const modelPaths = filePaths.filter((filePath) =>
           inputExtensions.some((ext) => filePath.toLowerCase().endsWith(ext))
         );
+
+        const fileNameTemplate = this.fileNameTemplate.trim();
 
         for (const [index, modelPath] of modelPaths.entries()) {
           this.convertProgress = Math.floor(
             ((index + 1) / modelPaths.length) * 100
           );
 
-          const modelName = modelPath.substring(
+          let modelName = modelPath.substring(
             modelPath.lastIndexOf("/") + 1,
             modelPath.lastIndexOf(".")
           );
+
+          if (fileNameTemplate) {
+            modelName = fileNameTemplate
+              .replace("{i}", index)
+              .replace("{n}", index + 1)
+              .replace("{name}", modelName);
+          }
 
           const outputPath = path.join(
             this.outputFolder,
@@ -215,7 +259,7 @@ export default {
           try {
             await exec(
               `${path.resolve(
-                "src/external/assimp"
+                "external/assimp"
               )} export "${modelPath}" "${outputPath}"`
             );
           } catch (e) {
