@@ -2,6 +2,10 @@
 
 ## A collection of tools for [GameGuru](https://www.game-guru.com)
 
+![ScriptGuru Banner](./scriptguru_banner.png)
+
+![FPP Manager](./fpp_manager.png)
+
 <br>
 
 ## Project setup
